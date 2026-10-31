@@ -1,0 +1,12 @@
+[Desktop Entry]
+Name=HA Lights
+Comment=Home Assistant lights by room
+Type=Application
+Icon=weather-clear-symbolic
+Exec=ha-lights
+Terminal=false
+Categories=COSMIC;
+Keywords=COSMIC;Applet;
+NoDisplay=true
+X-CosmicApplet=true
+X-OverflowPriority=10
