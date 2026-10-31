@@ -3,65 +3,9 @@ use cosmic::iced::{window::Id, Length, Limits, Rectangle, Vector};
 use cosmic::prelude::*;
 use cosmic::surface::action::{app_popup, destroy_popup};
 use cosmic::widget;
-use serde::{Deserialize, Serialize};
+use ha_rooms::config::{err, init_config, load_config, Config};
+use serde::Deserialize;
 use std::collections::BTreeMap;
-use std::path::PathBuf;
-
-#[derive(Serialize, Deserialize, Clone, Default)]
-struct Config {
-    url: String,
-    token: String,
-    #[serde(default)]
-    switch_label: String,
-}
-
-fn config_path() -> Result<PathBuf, String> {
-    let base = std::env::var("XDG_CONFIG_HOME")
-        .or_else(|_| std::env::var("HOME").map(|h| format!("{h}/.config")))
-        .map_err(err)?;
-    Ok(PathBuf::from(base).join("ha-rooms/config.json"))
-}
-
-fn load_config() -> Result<Config, String> {
-    let path = config_path()?;
-    let raw = std::fs::read_to_string(&path).map_err(|e| format!("{}: {e}", path.display()))?;
-    serde_json::from_str(&raw).map_err(|e| format!("{}: {e}", path.display()))
-}
-
-fn save_config(cfg: &Config) -> Result<(), String> {
-    use std::io::Write;
-    use std::os::unix::fs::OpenOptionsExt;
-    let path = config_path()?;
-    std::fs::create_dir_all(path.parent().unwrap()).map_err(err)?;
-    let mut f = std::fs::OpenOptions::new()
-        .write(true)
-        .create(true)
-        .truncate(true)
-        .mode(0o600)
-        .open(&path)
-        .map_err(err)?;
-    f.write_all(serde_json::to_string_pretty(cfg).map_err(err)?.as_bytes())
-        .map_err(err)
-}
-
-fn init_config() -> (Config, bool, Option<String>) {
-    let default = Config {
-        url: "http://homeassistant.local:8123".into(),
-        token: String::new(),
-        switch_label: "panel".into(),
-    };
-    match load_config() {
-        Ok(c) => {
-            let ok = !c.url.is_empty() && !c.token.is_empty();
-            (c, !ok, None)
-        }
-        Err(_) if !config_path().map(|p| p.exists()).unwrap_or(false) => {
-            let e = save_config(&default).err();
-            (default, true, e)
-        }
-        Err(e) => (default, true, Some(e)),
-    }
-}
 
 #[derive(Debug, Clone, Deserialize)]
 struct Entity {
@@ -97,13 +41,9 @@ fn has_id_prefix(name: &str) -> bool {
     }
 }
 
-fn err<E: std::fmt::Display>(e: E) -> String {
-    e.to_string()
-}
-
 async fn fetch(cfg: &Config, domain: &str) -> Result<Vec<Entity>, String> {
-    let label = cfg.switch_label.trim();
-    let allowed = if domain == "switch" && !label.is_empty() {
+    let label = (if domain == "switch" { &cfg.switch_label } else { &cfg.light_label }).trim();
+    let allowed = if !label.is_empty() {
         format!("label_entities({})", serde_json::to_string(label).map_err(err)?)
     } else {
         "none".to_string()
@@ -161,23 +101,13 @@ fn fetch_task() -> Task<cosmic::Action<Message>> {
     Task::perform(fetch_all(), |r| cosmic::Action::App(Message::Loaded(r)))
 }
 
-#[derive(Default, PartialEq)]
-enum Mode {
-    #[default]
-    List,
-    Settings,
-}
-
 #[derive(Default)]
 struct AppModel {
     core: cosmic::Core,
     popup: Option<Id>,
-    mode: Mode,
     configured: bool,
     data: Data,
     error: Option<String>,
-    form: Config,
-    show_token: bool,
     screen_height: Option<f32>,
 }
 
@@ -188,13 +118,11 @@ enum Message {
     Loaded(Result<Data, String>),
     Toggle(String),
     OpenSettings,
-    CancelSettings,
-    SaveSettings,
-    UrlInput(String),
-    TokenInput(String),
-    LabelInput(String),
-    ToggleTokenVisible,
     Monitor(Option<cosmic::iced::Size>),
+}
+
+fn open_settings() {
+    let _ = std::process::Command::new("ha-rooms-settings").spawn();
 }
 
 fn popup_limits() -> Limits {
@@ -258,55 +186,8 @@ impl AppModel {
             .into()
     }
 
-    fn settings_view(&self) -> Element<'_, Message> {
-        let mut col = widget::column(Vec::<Element<'_, Message>>::new())
-            .spacing(12)
-            .padding(16)
-            .width(Length::Fill)
-            .push(widget::text::title4("HomeAssistant Applet Settings"));
-        if !self.configured {
-            col = col.push(widget::text(
-                "Enter your Home Assistant URL and a long-lived access token (HA profile page).",
-            ));
-        }
-        if let Some(e) = &self.error {
-            col = col.push(widget::text(e.as_str()));
-        }
-        col.push(
-            widget::text_input("http://homeassistant.local:8123", &self.form.url)
-                .label("URL")
-                .on_input(Message::UrlInput),
-        )
-        .push(
-            widget::secure_input(
-                "Long-lived access token",
-                &self.form.token,
-                Some(Message::ToggleTokenVisible),
-                !self.show_token,
-            )
-            .label("Token")
-            .on_input(Message::TokenInput),
-        )
-        .push(
-            widget::text_input("panel", &self.form.switch_label)
-                .label("Switch label (empty = all switches)")
-                .on_input(Message::LabelInput),
-        )
-        .push(
-            widget::row(Vec::<Element<'_, Message>>::new())
-                .spacing(8)
-                .push(widget::button::standard("Cancel").on_press(Message::CancelSettings))
-                .push(widget::button::suggested("Save").on_press(Message::SaveSettings)),
-        )
-        .into()
-    }
-
     fn popup_view(&self) -> Element<'_, Message> {
-        let content = match self.mode {
-            Mode::List => self.list_view(),
-            Mode::Settings => self.settings_view(),
-        };
-        self.core.applet.popup_container(content).limits(popup_limits()).into()
+        self.core.applet.popup_container(self.list_view()).limits(popup_limits()).into()
     }
 }
 
@@ -324,12 +205,13 @@ impl cosmic::Application for AppModel {
     }
 
     fn init(core: cosmic::Core, _flags: ()) -> (Self, Task<cosmic::Action<Message>>) {
-        let (cfg, needs_setup, error) = init_config();
+        let (_, needs_setup, error) = init_config();
+        if needs_setup {
+            open_settings();
+        }
         let app = Self {
             core,
             configured: !needs_setup,
-            mode: if needs_setup { Mode::Settings } else { Mode::List },
-            form: cfg,
             error,
             ..Default::default()
         };
@@ -358,7 +240,11 @@ impl cosmic::Application for AppModel {
                 if let Some(id) = self.popup.take() {
                     return cosmic::task::message(cosmic::Action::Surface(destroy_popup(id)));
                 }
-                self.mode = if self.configured { Mode::List } else { Mode::Settings };
+                self.configured = load_config().map(|c| c.is_complete()).unwrap_or(false);
+                if !self.configured {
+                    open_settings();
+                    return Task::none();
+                }
                 let action = app_popup::<AppModel>(
                     |_| Default::default(),
                     move |state: &mut AppModel| {
@@ -387,11 +273,7 @@ impl cosmic::Application for AppModel {
                 let open = cosmic::task::message(cosmic::Action::Surface(action));
                 let monitor = cosmic::iced::window::monitor_size(self.core.main_window_id().unwrap())
                     .map(|s| cosmic::Action::App(Message::Monitor(s)));
-                return if self.configured {
-                    Task::batch([open, monitor, fetch_task()])
-                } else {
-                    Task::batch([open, monitor])
-                };
+                return Task::batch([open, monitor, fetch_task()]);
             }
             Message::PopupClosed(id) => {
                 if self.popup == Some(id) {
@@ -415,36 +297,11 @@ impl cosmic::Application for AppModel {
                 return Task::perform(set_state(id, on), |r| cosmic::Action::App(Message::Loaded(r)));
             }
             Message::OpenSettings => {
-                if let Ok(c) = load_config() {
-                    self.form = c;
-                }
-                self.show_token = false;
-                self.error = None;
-                self.mode = Mode::Settings;
-            }
-            Message::CancelSettings => {
-                self.error = None;
-                self.mode = Mode::List;
-            }
-            Message::SaveSettings => {
-                self.form.url = self.form.url.trim().to_string();
-                self.form.token = self.form.token.trim().to_string();
-                self.form.switch_label = self.form.switch_label.trim().to_string();
-                if self.form.url.is_empty() || self.form.token.is_empty() {
-                    self.error = Some("URL and token are required".into());
-                } else if let Err(e) = save_config(&self.form) {
-                    self.error = Some(e);
-                } else {
-                    self.error = None;
-                    self.configured = true;
-                    self.mode = Mode::List;
-                    return fetch_task();
+                open_settings();
+                if let Some(id) = self.popup.take() {
+                    return cosmic::task::message(cosmic::Action::Surface(destroy_popup(id)));
                 }
             }
-            Message::UrlInput(s) => self.form.url = s,
-            Message::TokenInput(s) => self.form.token = s,
-            Message::LabelInput(s) => self.form.switch_label = s,
-            Message::ToggleTokenVisible => self.show_token = !self.show_token,
             Message::Monitor(s) => self.screen_height = s.map(|s| s.height),
         }
         Task::none()
