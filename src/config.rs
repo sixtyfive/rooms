@@ -9,6 +9,8 @@ pub struct Config {
     pub switch_label: String,
     #[serde(default)]
     pub light_label: String,
+    #[serde(default)]
+    pub climate_label: String,
 }
 
 impl Config {
@@ -36,6 +38,7 @@ pub fn load_config() -> Result<Config, String> {
     c.token = c.token.trim().to_string();
     c.light_label = c.light_label.trim().to_string();
     c.switch_label = c.switch_label.trim().to_string();
+    c.climate_label = c.climate_label.trim().to_string();
     Ok(c)
 }
 
@@ -61,6 +64,7 @@ pub fn init_config() -> (Config, bool, Option<String>) {
         token: String::new(),
         switch_label: "panel".into(),
         light_label: String::new(),
+        climate_label: String::new(),
     };
     match load_config() {
         Ok(c) => {

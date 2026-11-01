@@ -18,6 +18,7 @@ enum Message {
     Token(String),
     LightLabel(String),
     SwitchLabel(String),
+    ClimateLabel(String),
     ToggleToken,
 }
 
@@ -79,6 +80,12 @@ impl cosmic::Application for App {
                 widget::text_input("all switches", &self.form.switch_label)
                     .on_input(Message::SwitchLabel)
                     .width(input_width),
+            ))
+            .add(widget::settings::item(
+                "Climate label",
+                widget::text_input("all thermostats", &self.form.climate_label)
+                    .on_input(Message::ClimateLabel)
+                    .width(input_width),
             ));
 
         let mut children: Vec<Element<'_, Message>> = vec![connection.into(), filters.into()];
@@ -100,6 +107,7 @@ impl cosmic::Application for App {
             Message::Token(s) => self.form.token = s,
             Message::LightLabel(s) => self.form.light_label = s,
             Message::SwitchLabel(s) => self.form.switch_label = s,
+            Message::ClimateLabel(s) => self.form.climate_label = s,
             Message::ToggleToken => {
                 self.show_token = !self.show_token;
                 return Task::none();
