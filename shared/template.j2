@@ -1,0 +1,8 @@
+{%- set ns = namespace(l=[]) -%}
+{%- set allowed = ALLOWED -%}
+{%- for s in states.DOMAIN | list -%}
+{%- if area_name(s.entity_id) and not is_hidden_entity(s.entity_id) and (allowed is none or s.entity_id in allowed) -%}
+{%- set ns.l = ns.l + [{'id': s.entity_id, 'name': s.name, 'state': s.state, 'area': area_name(s.entity_id)EXTRA}] -%}
+{%- endif -%}
+{%- endfor -%}
+{{ ns.l | tojson }}

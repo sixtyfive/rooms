@@ -1,0 +1,4 @@
+[
+  {"id": "climate.kitchen_bt", "name": "Better Thermostat", "state": "heat", "area": "Kitchen",
+   "cur": 20.5, "target": 21.0, "action": "heating", "min": 5.0, "max": 30.0}
+]

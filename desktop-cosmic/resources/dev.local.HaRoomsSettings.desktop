@@ -1,0 +1,8 @@
+[Desktop Entry]
+Name=HomeAssistant Applet Settings
+Comment=Settings for the Home Assistant panel applet
+Type=Application
+Icon=ha-switches
+Exec=ha-rooms-settings
+Terminal=false
+Categories=Settings;

@@ -1,0 +1,6 @@
+[
+  {"id": "light.desk", "name": "Desk lamp", "state": "on", "area": "Living room"},
+  {"id": "light.ceiling", "name": "Ceiling", "state": "off", "area": "Kitchen"},
+  {"id": "light.dead", "name": "Dead bulb", "state": "unavailable", "area": "Kitchen"},
+  {"id": "light.raw", "name": "ad3b strip segment", "state": "on", "area": "Kitchen"}
+]
