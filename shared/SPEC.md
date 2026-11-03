@@ -5,6 +5,7 @@ Frontends (COSMIC, Windows, Android) should behave identically.
 ## Config
 - Location: `$XDG_CONFIG_HOME/ha-rooms/config.json` (Linux), `%APPDATA%\ha-rooms\config.json` (Windows).
 - Fields: `url`, `token` (long-lived access token), `light_label`, `switch_label`, `climate_label`.
+- Windows keeps `token` in Credential Manager instead of the file (file holds an empty token; a token found in the file is migrated).
 - All values are trimmed on load. An empty label means "show all". Complete = URL and token non-empty.
 - If missing, create with defaults (`switch_label` = `panel`) and open settings.
 - Settings are instant-apply: every edit is persisted immediately.

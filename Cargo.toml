@@ -1,3 +1,5 @@
 [workspace]
 resolver = "2"
 members = ["core", "desktop-cosmic"]
+# Windows/Tauri frontend: built separately (own workspace, needs the Windows toolchain)
+exclude = ["desktop-windows"]
